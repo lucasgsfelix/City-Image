@@ -1,18 +1,14 @@
 import numpy as np
 import pandas as pd
 
-def generate_gaussian_distribution(amount_classes):
+def generate_gaussian_distribution(mean, stdev, amount_classes):
     """
 
 
     """
-
-    row = np.random.randint(0, amount_classes, 1)
-
-    column = np.random.randint(0, amount_classes, 1)
 
     # matriz - category x category
-    return row, column
+    return np.random.normal(mean, stdev, size=(amount_classes, amount_classes)).astype(int)
 
 
 if __name__ == '__main__':
@@ -20,16 +16,33 @@ if __name__ == '__main__':
 
     #df = pd.read_table()
 
-    amount_classes, amount_instances = 10, 1000
+    # PRE-PROCESSING CONSTRAINTS
+    # the transition must ocurr on the same social day - 05:00 AM to 05:00 AM
+    # cannot be for the same place
+    # the time interval between the transactions must be 4 hours
 
-    random_vists = np.zeros((amount_classes, amount_classes))
 
-    for _ in range(0, amount_instances):
+    # in the original paper the authors construct ten different random visits graphs
+    # where the weight contains the same number of transations that are present in
+    # the original G, which is the users mobility graph
+    # after the random visits graphs are constructs it is verified if
+    # the graphs weights distribution follows a normal distribution
+    # if it follows, then we compute the mean and de std. dev. for the edges weight
+    # based on this we calculate the
+    # indifference interval:
+    # (mean - 3 * std dev, mean + 3 * std dev)
+    # which must contains 99.73% of the edges values, due to the normal distribution
+    # rejection interval: (users does not make such transaction)
+    # (-infitiy, mean - 3 * std dev)
+    # favorites interval: (users are most likely to make suck transaction)
+    # (mean + 3 * std dev, infinity)
+    # Why do ten graphs? To ensure the randomness do not be a trouble our tests?
 
-        ## generates gaussian distribution of visits
-        row, column = generate_gaussian_distribution(amount_classes)
 
-        random_vists[row, column] += 1
+    amount_classes, amount_instances = 10, 1000000
+
+    # defining the amount of executions to calculate the mean and std of the matrix
+    amount_exe = amount_classes
 
     # count the amount of transitions between one category and another
     # I have as input a matrix with the following format
@@ -38,27 +51,22 @@ if __name__ == '__main__':
 
     users_mobility = np.random.randint(0, amount_classes, (amount_instances, 2))
 
-    #print(users_mobility)
-
-    #exit()
-
     for source, destiny in users_mobility:
 
         real_visits_frequency[source, destiny] += 1
 
+    random_vists = np.array([generate_gaussian_distribution(np.mean(real_visits_frequency),
+                                                            np.std(real_visits_frequency),
+                                                            amount_classes)
+                                                            for _ in range(0, amount_exe)])
 
-    # montar a matriz da seguinte forma:
-    # normalizing by min/max value
-    # values that are bigger than 0 will have a bigger amount of visits
-    # values that are smaller than 0 will have a smaller amount of visits
-    # ((amount of real transitions ij)  - (amount of random transitions ij))
-    # /
-    # max(((amount of real transitions)  - (amount of random transitions)))
+    min_indifference = np.mean(random_vists) - 3 * np.std(random_vists)
 
-    substract_matrix = real_visits_frequency - random_vists
+    max_indifference = np.mean(random_vists) + 3 * np.std(random_vists)
 
-    heatmap_matrix = substract_matrix/np.max(substract_matrix)
+    index_true = np.where(((real_visits_frequency >= min_indifference) &
+                           (real_visits_frequency <= max_indifference)))
 
-    print(heatmap_matrix)
+    real_visits_frequency[index_true] = 0
 
 
